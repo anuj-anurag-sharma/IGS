@@ -1,13 +1,12 @@
 package sample;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.Queue;
 import java.util.TimeZone;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
@@ -41,7 +40,7 @@ import com.lightstreamer.ls_client.SubscribedTableKey;
 import com.lightstreamer.ls_client.UpdateInfo;
 import com.tictactec.ta.lib.Core;
 
-public class Main {
+public class ABCD {
 
 	static RestTemplate restTemplate = new RestTemplate();
 
@@ -54,7 +53,7 @@ public class Main {
 	static Core core = new Core();
 
 	public static void main(String[] args) throws Exception {
-		Main main = new Main();
+		ABCD main = new ABCD();
 		CreateSessionV2Request request = new CreateSessionV2Request();
 		request.setIdentifier("zosman");
 		request.setPassword("Waheed01");
@@ -64,63 +63,10 @@ public class Main {
 				context.getCreateSessionResponse().getLightstreamerEndpoint());
 
 		subscribe();
-		/*Runnable runnable = new Runnable() {
-
-			@Override
-			public void run() {
-				while (true) {
-					try {
-						consume(map);
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-				}
-			}
-	
-			private void consume(Map<DateTime, List<Tick>> map) throws Exception {
-				if (map.size() == 0) {
-					Thread.sleep(1000);
-				} else {
-					System.err.println(Thread.currentThread().getName() + " is awake");
-					Set<DateTime> set = map.keySet();
-					for (DateTime dateTime : set) {
-						List<Tick> list = map.get(dateTime);
-						System.out.println("In consume - for Datetime as " + dateTime + ", size of list of ticks is "
-								+ list.size());
-						for (Tick tick : list) {
-							System.out.println("In consume : " + tick.getOfferHigh());
-						}
-						map.remove(dateTime);
-					}
-				}
-			}
-		};*/
-//		Thread t = new Thread(runnable, "Consumer");
-//		t.start();
-//		System.out.println("Map size : " + map.size());
-
-		// heinekenAshiCalculation();
-
-		// String order = placeOrder(context.getConversationContext());
-		// System.out.println(order);
-		// GetSprintMarketPositionsV1Response response =
-		// checkSprintMarketPositionV1(context.getConversationContext());
-		// List<SprintMarketPositionsItem> positions =
-		// response.getSprintMarketPositions();
-		// for (SprintMarketPositionsItem item : positions) {
-		// System.out.println(item.getEpic());
-		// System.out.println(item.getMarketStatus());
-		// System.out.println(item.getPayoutAmount());
-		// System.out.println(item.getCurrency());
-		// System.out.println();
-		// }
-
-		// disconnect();
 
 	}
 
 	private static void heinekenAshiCalculation() {
-		// TODO Auto-generated method stub
 
 	}
 
@@ -128,148 +74,44 @@ public class Main {
 		lsClient.closeConnection();
 	}
 
-	private static Map<Integer, Tick> subscribe() throws Exception {
-		final Map<Integer, Tick> map = new ConcurrentHashMap<Integer, Tick>();
+	private static void subscribe() throws Exception {
+		final Queue<Tick> queue = new ConcurrentLinkedQueue<Tick>();
+		// List<Double> calculatedSma = new ArrayList<Double>();
+		// List<Double> calculatedZeroLagMacd = new ArrayList<Double>();
+		// List<Map<String, Double>> heikinAshiList = new ArrayList<>();
+		// Thread workerThread = new WorkerThread(queue, calculatedSma,
+		// calculatedZeroLagMacd, heikinAshiList);
+		// Thread calculationThread = new Thread(new
+		// ZeroLagThread(calculatedSma));
+		// Thread heikinAshiThread = new HeikinAshiThread(heikinAshiList);
+		// workerThread.start();
+		// calculationThread.start();
+		// heikinAshiThread.start();
+		BlockingQueue<OHLC> ohlcQueue = new ArrayBlockingQueue<OHLC>(20);
+		Thread orderProcessingThread = new OrderProcessingThread(ohlcQueue);
+		Thread workerThread = new WorkerThread(queue, ohlcQueue);
+		workerThread.start();
+		orderProcessingThread.start();
 		subscribeForChartCandles("FM.D.EURUSD24.EURUSD24.IP", "SECOND", new HandyTableListenerAdapter() {
-			boolean alreadyStarted = false;
-			Double ofrOpen = null;
-			Double ofrHigh = null;
-			Double ofrLow = null;
-			Double ofrClose = null;
-			DateTime firstTick = null;
-			int tickCount = 0;
-			Tick tick = null;
-			int counter = 0;
 			@Override
 			public void onUpdate(int i, String s, UpdateInfo updateInfo) {
-//				 System.out.println("****UPDATE->START**** - "+(tickCount++));
-				// System.out.println(i);
-				// System.out.println(s);
 				String newValue = updateInfo.getNewValue("UTM");
-				DateTime dateTime = null;
-				int sec = 0;
-				if (!alreadyStarted) {
-					System.out.println("Set start flag to true");
-					alreadyStarted = true;
-					firstTick = new DateTime(Long.valueOf(newValue),
-							DateTimeZone.forTimeZone(TimeZone.getTimeZone("IST")));
-					sec = firstTick.getSecondOfMinute();
-					dateTime = firstTick;
-					if (sec < 30) {
-						sec = 30 - sec;
-					} else {
-						sec = 59 - sec;
-					}
-				} else {
-					sec = 30;
-					if(null == firstTick){
-					firstTick = new DateTime(Long.valueOf(newValue),
-							DateTimeZone.forTimeZone(TimeZone.getTimeZone("IST")));
-					}
-					dateTime = new DateTime(Long.valueOf(newValue),
-							DateTimeZone.forTimeZone(TimeZone.getTimeZone("IST")));
-				}
-				
-				if (dateTime.minus(sec*1000).isAfter(firstTick)) {
-					// add Tick into queue
-					if(null != tick){
-					System.out.println(counter);
-					counter ++;
-					tick.setDateTime(DateTime.now());
-					map.put(counter, tick);
-					System.out.println("Added tick "+tick+" with key as "+counter);
-					}
-					firstTick = null;
-					ofrOpen = null;
-					ofrHigh = null;
-					ofrLow = null;
-					ofrClose = null;
-					tick = null;
-					
-					
-				} else {
-					if(null == tick){
-						tick = new Tick();
-					}
-					if(null == ofrOpen){
-						ofrOpen = Double.valueOf(updateInfo.getNewValue("OFR_OPEN"));
-					}
-					Double tempHigh = ofrHigh;
-					ofrHigh = Double.valueOf(updateInfo.getNewValue("OFR_HIGH"));
-					if(null != tempHigh){
-					ofrHigh = Math.max(tempHigh,ofrHigh);
-					}
-					
-					Double tempLow = ofrLow;
-					ofrLow = Double.valueOf(updateInfo.getNewValue("OFR_LOW"));
-					if(null != tempLow){
-					ofrLow = Math.min(tempLow, ofrLow);
-					}
-					
-					ofrClose = Double.valueOf(updateInfo.getNewValue("OFR_CLOSE"));
-				}
-				tick.setOfferClose(ofrClose);
-				tick.setOfferHigh(ofrHigh);
-				tick.setOfferLow(ofrLow);
-				tick.setOfferOpen(ofrOpen);
-					// create Tick with required values
-//					DateTime dateTimeNew = dateTime;
-//					tick.setDateTime(dateTimeNew);
-//					String ofrOpen = updateInfo.getNewValue("OFR_OPEN");
-//					tick.setOfferOpen(Double.valueOf(ofrOpen));
-//					String ofrClose = updateInfo.getNewValue("OFR_CLOSE");
-//					tick.setOfferClose(Double.valueOf(ofrClose));
-//					String ofrHigh = updateInfo.getNewValue("OFR_HIGH");
-//					tick.setOfferHigh(Double.valueOf(ofrHigh));
-//					String ofrLow = updateInfo.getNewValue("OFR_LOW");
-//					tick.setOfferLow(Double.valueOf(ofrLow));
-//					String tickCount = updateInfo.getNewValue("CANDLE_TICK_COUNT");
-//					tick.setTickCount(Long.getLong(tickCount));
-
-				// System.out.println(dateTimeNew.toDate());
-//				DateTime dateTimeNew = dateTime;
-//				tick.setDateTime(dateTimeNew);
-//				String ofrOpen = updateInfo.getNewValue("OFR_OPEN");
-//				tick.setOfferOpen(Double.valueOf(ofrOpen));
-//				String ofrClose = updateInfo.getNewValue("OFR_CLOSE");
-//				tick.setOfferClose(Double.valueOf(ofrClose));
-//				String ofrHigh = updateInfo.getNewValue("OFR_HIGH");
-//				tick.setOfferHigh(Double.valueOf(ofrHigh));
-//				String ofrLow = updateInfo.getNewValue("OFR_LOW");
-//				tick.setOfferLow(Double.valueOf(ofrLow));
-//				String tickCount = updateInfo.getNewValue("CANDLE_TICK_COUNT");
-//				tick.setTickCount(Long.getLong(tickCount));
-//				Tick t = null;
-//				if (list.size() > 0) {
-//					t = list.get(0);
-//				}
-//				if (t != null && dateTimeNew.minusSeconds(30).isAfter(dateTime)) {
-//					map.put(t.getDateTime(), list);
-//					System.err.println(
-//							"*******Map size changed from " + (map.size() - 1) + " to " + map.size() + "******");
-//					List<Tick> list2 = map.get(t.getDateTime());
-//					System.out.println(
-//							list2.size() + " Ticks ::" + ((list2.get(list2.size() - 1).getDateTime().getMillis()
-//									- (list2.get(0).getDateTime().getMillis()))) / 1000 + " Seconds");
-//					list.clear();
-//					dateTime = DateTime.now();
-//				}
-
-				// System.out.println(updateInfo);
-				// dateTime = tick.getDateTime();
-				// System.out.println("****UPDATE->END****");
-//				list.add(tick);
+				DateTime dateTime = new DateTime(Long.valueOf(newValue),
+						DateTimeZone.forTimeZone(TimeZone.getTimeZone("IST")));
+				double ofrOpen = Double.valueOf(updateInfo.getNewValue("OFR_OPEN"));
+				double ofrHigh = Double.valueOf(updateInfo.getNewValue("OFR_HIGH"));
+				double ofrLow = Double.valueOf(updateInfo.getNewValue("OFR_LOW"));
+				double ofrClose = Double.valueOf(updateInfo.getNewValue("OFR_CLOSE"));
+				double bidOpen = Double.valueOf(updateInfo.getNewValue("BID_OPEN"));
+				double bidHigh = Double.valueOf(updateInfo.getNewValue("BID_HIGH"));
+				double bidLow = Double.valueOf(updateInfo.getNewValue("BID_LOW"));
+				double bidClose = Double.valueOf(updateInfo.getNewValue("BID_CLOSE"));
+				Tick tick = new Tick(dateTime, (ofrOpen + bidOpen) / 2, (ofrHigh + bidHigh) / 2, (ofrLow + bidLow) / 2,
+						(ofrClose + bidClose) / 2, null);
+				queue.add(tick);
 			}
 
-			/*
-			 * @Override public void onSnapshotEnd(int i, String s) {
-			 * System.out.println("****SNAPSHOT->START****");
-			 * System.out.println(i); System.out.println(s);
-			 * System.out.println("****SNAPSHOT->END****"); }
-			 */
-
 		});
-		return map;
 	}
 
 	private static String placeOrder(ConversationContext conversationContext) throws Exception {
@@ -296,8 +138,8 @@ public class Main {
 		 * "LTP_LOW", "LTP_CLOSE", "CANDLE_START", "CANDLE_TICK_COUNT"};
 		 */
 
-		String[] fields = new String[] { "UTM", "OFR_OPEN", "OFR_HIGH", "OFR_LOW", "OFR_CLOSE", "CANDLE_START",
-				"CANDLE_TICK_COUNT" };
+		String[] fields = new String[] { "UTM", "OFR_OPEN", "OFR_HIGH", "OFR_LOW", "OFR_CLOSE", "BID_OPEN", "BID_HIGH",
+				"BID_LOW", "BID_CLOSE" };
 
 		ExtendedTableInfo extendedTableInfo = new ExtendedTableInfo(new String[] { subscriptionKey }, "MERGE", fields,
 				true);

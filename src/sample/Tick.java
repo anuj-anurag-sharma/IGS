@@ -4,17 +4,28 @@ import org.joda.time.DateTime;
 
 public class Tick {
 
+	public Tick(DateTime dateTime, Double offerOpen, Double offerHigh, Double offerLow, Double offerClose,
+			Long tickCount) {
+		this.dateTime = dateTime;
+		this.open = offerOpen;
+		this.high = offerHigh;
+		this.low = offerLow;
+		this.close = offerClose;
+	}
+
+	public Tick() {
+
+	}
+
 	private DateTime dateTime;
 
-	private Double offerOpen;
+	private Double open;
 
-	private Double offerHigh;
+	private Double high;
 
-	private Double offerLow;
+	private Double low;
 
-	private Double offerClose;
-
-	private Long tickCount;
+	private Double close;
 
 	public DateTime getDateTime() {
 		return dateTime;
@@ -25,49 +36,41 @@ public class Tick {
 	}
 
 	public Double getOfferOpen() {
-		return offerOpen;
+		return open;
 	}
 
 	public void setOfferOpen(Double offerOpen) {
-		this.offerOpen = offerOpen;
+		this.open = offerOpen;
 	}
 
 	public Double getOfferHigh() {
-		return offerHigh;
+		return high;
 	}
 
 	public void setOfferHigh(Double offerHigh) {
-		this.offerHigh = offerHigh;
+		this.high = offerHigh;
 	}
 
 	public Double getOfferLow() {
-		return offerLow;
+		return low;
 	}
 
 	public void setOfferLow(Double offerLow) {
-		this.offerLow = offerLow;
+		this.low = offerLow;
 	}
 
 	public Double getOfferClose() {
-		return offerClose;
+		return close;
 	}
 
 	public void setOfferClose(Double offerClose) {
-		this.offerClose = offerClose;
-	}
-
-	public Long getTickCount() {
-		return tickCount;
-	}
-
-	public void setTickCount(Long tickCount) {
-		this.tickCount = tickCount;
+		this.close = offerClose;
 	}
 
 	@Override
 	public String toString() {
-		return "Tick [dateTime=" + dateTime + ", offerOpen=" + offerOpen + ", offerHigh=" + offerHigh + ", offerLow="
-				+ offerLow + ", offerClose=" + offerClose + ", tickCount=" + tickCount + "]";
+		return "Tick [dateTime=" + dateTime + ", offerOpen=" + open + ", offerHigh=" + high + ", offerLow=" + low
+				+ ", offerClose=" + close + "]";
 	}
 
 }
