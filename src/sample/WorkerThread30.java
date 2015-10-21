@@ -8,7 +8,7 @@ import java.util.Queue;
 import org.apache.commons.lang.ArrayUtils;
 import org.joda.time.DateTime;
 
-public class WorkerThread extends Thread {
+public class WorkerThread30 extends Thread {
 
 	boolean initialStart = true;
 
@@ -34,21 +34,21 @@ public class WorkerThread extends Thread {
 
 	private int sleepTime;
 
-	IndicatorUtil util;
+	CalculationUtil util;
 
-	public WorkerThread(Queue<Tick> queue, Queue<OHLC> ohlcList) {
+	public WorkerThread30(Queue<Tick> queue, Queue<OHLC> ohlcList) {
 		this.queue = queue;
 		this.ohlcList = ohlcList;
 		calculatedSma2Pds = new ArrayList<Double>();
 		calculatedSma3Pds = new ArrayList<Double>();
 		calculatedZeroLagMacd = new ArrayList<Double>();
 		heikinAshiList = new ArrayList<Map<String, Double>>();
-		util = new IndicatorUtil();
+		util = new CalculationUtil();
 	}
 
 	@Override
 	public void run() {
-		for (int i = 0; i < 27; i++) {
+		for (int i = 0; i < 26; i++) {
 			closeList.add(i * 1000.0);
 			openList.add(i * 1000.0);
 			highList.add(i * 1000.0);
@@ -67,7 +67,7 @@ public class WorkerThread extends Thread {
 			} else {
 				sleepTime = 30;
 			}
-//			System.out.println("sleep time set to " + sleepTime);
+			// System.out.println("sleep time set to " + sleepTime);
 			try {
 				Thread.sleep(sleepTime * 1000);
 			} catch (InterruptedException e) {
@@ -95,8 +95,8 @@ public class WorkerThread extends Thread {
 					i++;
 					queue.remove(tick);
 				}
-//				TickObject object = new TickObject(open, close, high, low);
-//				System.out.println(DateTime.now() + ":" + object);
+				// TickObject object = new TickObject(open, close, high, low);
+				// System.out.println(DateTime.now() + ":" + object);
 				openList.add(open);
 				highList.add(high);
 				lowList.add(low);

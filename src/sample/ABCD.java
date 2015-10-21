@@ -1,7 +1,9 @@
 package sample;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Queue;
 import java.util.TimeZone;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -52,13 +54,16 @@ public class ABCD {
 
 	static Core core = new Core();
 
+	static List<String> trades = new ArrayList<String>();
+
+	static AuthenticationResponseAndConversationContext context;
+
 	public static void main(String[] args) throws Exception {
 		ABCD main = new ABCD();
 		CreateSessionV2Request request = new CreateSessionV2Request();
 		request.setIdentifier("zosman");
 		request.setPassword("Waheed01");
-		AuthenticationResponseAndConversationContext context = main.createSession(request,
-				"84df164ace00c09cd39cafea900d1d8a214632e2");
+		context = main.createSession(request, "84df164ace00c09cd39cafea900d1d8a214632e2");
 		connect(context.getConversationContext(), context.getCreateSessionResponse().getCurrentAccountId(),
 				context.getCreateSessionResponse().getLightstreamerEndpoint());
 
@@ -75,23 +80,18 @@ public class ABCD {
 	}
 
 	private static void subscribe() throws Exception {
-		final Queue<Tick> queue = new ConcurrentLinkedQueue<Tick>();
-		// List<Double> calculatedSma = new ArrayList<Double>();
-		// List<Double> calculatedZeroLagMacd = new ArrayList<Double>();
-		// List<Map<String, Double>> heikinAshiList = new ArrayList<>();
-		// Thread workerThread = new WorkerThread(queue, calculatedSma,
-		// calculatedZeroLagMacd, heikinAshiList);
-		// Thread calculationThread = new Thread(new
-		// ZeroLagThread(calculatedSma));
-		// Thread heikinAshiThread = new HeikinAshiThread(heikinAshiList);
-		// workerThread.start();
-		// calculationThread.start();
-		// heikinAshiThread.start();
-		BlockingQueue<OHLC> ohlcQueue = new ArrayBlockingQueue<OHLC>(20);
-		Thread orderProcessingThread = new OrderProcessingThread(ohlcQueue);
-		Thread workerThread = new WorkerThread(queue, ohlcQueue);
-		workerThread.start();
-		orderProcessingThread.start();
+		final Queue<Tick> queue30 = new ConcurrentLinkedQueue<Tick>();
+		final Queue<Tick> queue60 = new ConcurrentLinkedQueue<Tick>();
+		BlockingQueue<OHLC> ohlcQueue30 = new ArrayBlockingQueue<OHLC>(20);
+		BlockingQueue<OHLC> ohlcQueue60 = new ArrayBlockingQueue<OHLC>(20);
+		Thread orderProcessingThread30 = new OrderProcessingThread30(ohlcQueue30);
+		Thread workerThread30 = new WorkerThread30(queue30, ohlcQueue30);
+		Thread workerThread60 = new WorkerThread60(queue60, ohlcQueue60);
+		Thread orderProcessingThread60 = new OrderProcessingThread60(ohlcQueue60);
+		workerThread30.start();
+		orderProcessingThread30.start();
+		workerThread60.start();
+		orderProcessingThread60.start();
 		subscribeForChartCandles("FM.D.EURUSD24.EURUSD24.IP", "SECOND", new HandyTableListenerAdapter() {
 			@Override
 			public void onUpdate(int i, String s, UpdateInfo updateInfo) {
@@ -108,16 +108,16 @@ public class ABCD {
 				double bidClose = Double.valueOf(updateInfo.getNewValue("BID_CLOSE"));
 				Tick tick = new Tick(dateTime, (ofrOpen + bidOpen) / 2, (ofrHigh + bidHigh) / 2, (ofrLow + bidLow) / 2,
 						(ofrClose + bidClose) / 2, null);
-				queue.add(tick);
+				queue30.add(tick);
 			}
 
 		});
 	}
 
-	private static String placeOrder(ConversationContext conversationContext) throws Exception {
+	public static String placeOrder(ConversationContext conversationContext, Direction direction) throws Exception {
 		CreateSprintMarketPositionV1Request sprintMarketRequest = new CreateSprintMarketPositionV1Request();
 		sprintMarketRequest.setEpic("FM.D.EURUSD24.EURUSD24.IP");
-		sprintMarketRequest.setDirection(Direction.BUY);
+		sprintMarketRequest.setDirection(direction);
 		sprintMarketRequest.setExpiryPeriod(ExpiryPeriod.ONE_MINUTE);
 		sprintMarketRequest.setSize(new BigDecimal(1));
 		CreateSprintMarketPositionV1Response response = createSprintMarketPositionV1(conversationContext,
@@ -236,6 +236,19 @@ public class ABCD {
 
 		lsClient.openConnection(connectionInfo, adapter);
 
+	}
+
+	public static void trade(Direction direction) {
+		String tradeRef = "";
+		try {
+			tradeRef = placeOrder(context.getConversationContext(), direction);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		if (!StringUtils.isEmpty(tradeRef)) {
+			System.out.println("Trade order placed with deal Reference  : " + tradeRef);
+			trades.add(tradeRef);
+		}
 	}
 
 }

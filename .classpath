@@ -7,7 +7,6 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="lib" path="/Users/anujsharma/Downloads/api-sample-java-1.0.1.1/api-client-sample.jar" sourcepath="/Users/anujsharma/Downloads/api-sample-java-1.0.1.1/api-client-sample-sources.zip"/>
-	<classpathentry kind="lib" path="/Users/anujsharma/Downloads/joda-time-2.8.2.jar"/>
 	<classpathentry kind="lib" path="/Users/anujsharma/Downloads/ta-lib-0.4.0.jar"/>
 	<classpathentry kind="con" path="org.eclipse.m2e.MAVEN2_CLASSPATH_CONTAINER">
 		<attributes>
