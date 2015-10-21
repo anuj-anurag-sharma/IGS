@@ -109,6 +109,7 @@ public class ABCD {
 				Tick tick = new Tick(dateTime, (ofrOpen + bidOpen) / 2, (ofrHigh + bidHigh) / 2, (ofrLow + bidLow) / 2,
 						(ofrClose + bidClose) / 2, null);
 				queue30.add(tick);
+				queue60.add(tick);
 			}
 
 		});

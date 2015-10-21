@@ -1,5 +1,8 @@
 package sample;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -7,6 +10,8 @@ import java.util.Queue;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.joda.time.DateTime;
+
+import au.com.bytecode.opencsv.CSVWriter;
 
 public class WorkerThread30 extends Thread {
 
@@ -30,6 +35,10 @@ public class WorkerThread30 extends Thread {
 
 	List<Map<String, Double>> heikinAshiList;
 
+	File file = new File("30SecondsChart.csv");
+
+	CSVWriter csvWriter = null;
+
 	Queue<Tick> queue;
 
 	private int sleepTime;
@@ -43,6 +52,16 @@ public class WorkerThread30 extends Thread {
 		calculatedSma3Pds = new ArrayList<Double>();
 		calculatedZeroLagMacd = new ArrayList<Double>();
 		heikinAshiList = new ArrayList<Map<String, Double>>();
+		try {
+			csvWriter = new CSVWriter(new FileWriter(file), ',');
+			String[] line = { "Date", "Open", "High", "Low", "Close", "Zero Lag", "Sma2 Period", "Sma3 Period",
+					"Heikin Ashi Open", "Heikin Ashi Close" };
+			csvWriter.writeNext(line);
+			csvWriter.flush();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		util = new CalculationUtil();
 	}
 
@@ -106,9 +125,37 @@ public class WorkerThread30 extends Thread {
 				calculateHeikinAshi();
 				OHLC ohlc = new OHLC(calculatedSma2Pds, calculatedSma3Pds, calculatedZeroLagMacd, heikinAshiList);
 				ohlcList.add(ohlc);
+				String[] line = formCsvArray(open, high, low, close,
+						calculatedZeroLagMacd.get(calculatedZeroLagMacd.size() - 1),
+						calculatedSma2Pds.get(calculatedSma2Pds.size() - 1),
+						calculatedSma3Pds.get(calculatedSma3Pds.size() - 1),
+						heikinAshiList.get(heikinAshiList.size() - 1).get(CalculationUtil.H_OPEN),
+						heikinAshiList.get(heikinAshiList.size() - 1).get(CalculationUtil.H_CLOSE));
+				csvWriter.writeNext(line);
+				try {
+					csvWriter.flush();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 
 		}
+	}
+
+	private String[] formCsvArray(double open, double high, double low, double close, Double double1, Double double2,
+			Double double3, Double double4, Double double5) {
+		String[] line = new String[10];
+		line[0] = String.valueOf(DateTime.now());
+		line[1] = String.valueOf(open);
+		line[2] = String.valueOf(high);
+		line[3] = String.valueOf(low);
+		line[4] = String.valueOf(close);
+		line[5] = String.valueOf(double1);
+		line[6] = String.valueOf(double2);
+		line[7] = String.valueOf(double3);
+		line[8] = String.valueOf(double4);
+		line[9] = String.valueOf(double5);
+		return line;
 	}
 
 	private void calculateHeikinAshi() {

@@ -1,12 +1,18 @@
 package sample;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.joda.time.DateTime;
+
+import au.com.bytecode.opencsv.CSVWriter;
 
 public class WorkerThread60 extends Thread {
 
@@ -22,13 +28,17 @@ public class WorkerThread60 extends Thread {
 
 	List<Double> closeList = new ArrayList<Double>();
 
-//	List<Double> calculatedSma2Pds;
+	// List<Double> calculatedSma2Pds;
 
-//	List<Double> calculatedSma3Pds;
+	// List<Double> calculatedSma3Pds;
 
 	List<Double> calculatedZeroLagMacd;
 
-//	List<Map<String, Double>> heikinAshiList;
+	// List<Map<String, Double>> heikinAshiList;
+
+	File file = new File("60SecondsChart.csv");
+
+	CSVWriter csvWriter = null;
 
 	Queue<Tick> queue;
 
@@ -39,10 +49,19 @@ public class WorkerThread60 extends Thread {
 	public WorkerThread60(Queue<Tick> queue, Queue<OHLC> ohlcList) {
 		this.queue = queue;
 		this.ohlcList = ohlcList;
-//		calculatedSma2Pds = new ArrayList<Double>();
-//		calculatedSma3Pds = new ArrayList<Double>();
+		try {
+			csvWriter = new CSVWriter(new FileWriter(file), ',');
+			String[] line = { "Date", "Open", "High", "Low", "Close", "Zero Lag" };
+			csvWriter.writeNext(line);
+			csvWriter.flush();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		// calculatedSma2Pds = new ArrayList<Double>();
+		// calculatedSma3Pds = new ArrayList<Double>();
 		calculatedZeroLagMacd = new ArrayList<Double>();
-//		heikinAshiList = new ArrayList<Map<String, Double>>();
+		// heikinAshiList = new ArrayList<Map<String, Double>>();
 		util = new CalculationUtil();
 	}
 
@@ -101,28 +120,47 @@ public class WorkerThread60 extends Thread {
 				// calculateHeikinAshi();
 				OHLC ohlc = new OHLC(null, null, calculatedZeroLagMacd, null);
 				ohlcList.add(ohlc);
+				String[] line = formCsvArray(open, high, low, close,
+						calculatedZeroLagMacd.get(calculatedZeroLagMacd.size() - 1));
+				csvWriter.writeNext(line);
+				try {
+					csvWriter.flush();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 
 		}
 	}
 
-	/*private void calculateHeikinAshi() {
-		Map<String, Double> heikinAshi = util.getHeikinAshi(
-				ArrayUtils.toPrimitive(openList.toArray(new Double[openList.size()])),
-				ArrayUtils.toPrimitive(highList.toArray(new Double[highList.size()])),
-				ArrayUtils.toPrimitive(closeList.toArray(new Double[closeList.size()])),
-				ArrayUtils.toPrimitive(lowList.toArray(new Double[lowList.size()])));
-		heikinAshiList.add(heikinAshi);
-	}*/
+	/*
+	 * private void calculateHeikinAshi() { Map<String, Double> heikinAshi =
+	 * util.getHeikinAshi( ArrayUtils.toPrimitive(openList.toArray(new
+	 * Double[openList.size()])), ArrayUtils.toPrimitive(highList.toArray(new
+	 * Double[highList.size()])), ArrayUtils.toPrimitive(closeList.toArray(new
+	 * Double[closeList.size()])), ArrayUtils.toPrimitive(lowList.toArray(new
+	 * Double[lowList.size()]))); heikinAshiList.add(heikinAshi); }
+	 */
 
-	/*private void calculateSma() {
-		double sma2Pds = util.getSMAForLastBar(0, closeList.size() - 1,
-				ArrayUtils.toPrimitive(closeList.toArray(new Double[closeList.size()])), 2);
-		calculatedSma2Pds.add(sma2Pds);
-		double sma3Pds = util.getSMAForLastBar(0, closeList.size() - 1,
-				ArrayUtils.toPrimitive(closeList.toArray(new Double[closeList.size()])), 3);
-		calculatedSma3Pds.add(sma3Pds);
-	}*/
+	/*
+	 * private void calculateSma() { double sma2Pds = util.getSMAForLastBar(0,
+	 * closeList.size() - 1, ArrayUtils.toPrimitive(closeList.toArray(new
+	 * Double[closeList.size()])), 2); calculatedSma2Pds.add(sma2Pds); double
+	 * sma3Pds = util.getSMAForLastBar(0, closeList.size() - 1,
+	 * ArrayUtils.toPrimitive(closeList.toArray(new Double[closeList.size()])),
+	 * 3); calculatedSma3Pds.add(sma3Pds); }
+	 */
+
+	private String[] formCsvArray(double open, double high, double low, double close, Double double1) {
+		String[] line = new String[6];
+		line[0] = String.valueOf(DateTime.now());
+		line[1] = String.valueOf(open);
+		line[2] = String.valueOf(high);
+		line[3] = String.valueOf(low);
+		line[4] = String.valueOf(close);
+		line[5] = String.valueOf(double1);
+		return line;
+	}
 
 	private void calculateZeroLagMacd() {
 		double zeroLagMacd = util
