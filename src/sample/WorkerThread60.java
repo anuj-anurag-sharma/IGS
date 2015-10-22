@@ -67,12 +67,13 @@ public class WorkerThread60 extends Thread {
 
 	@Override
 	public void run() {
-		for (int i = 0; i < 26; i++) {
-			closeList.add(i * 1000.0);
-			openList.add(i * 1000.0);
-			highList.add(i * 1000.0);
-			lowList.add(i * 1000.0);
-		}
+		/*
+		 * for (int i = 0; i < 26; i++) { closeList.add(i * 1000.0);
+		 * openList.add(i * 1000.0); highList.add(i * 1000.0); lowList.add(i *
+		 * 1000.0);
+		 * util.getZeroLagMacd(ArrayUtils.toPrimitive(closeList.toArray(new
+		 * Double[closeList.size()])), 12, 26, 9); }
+		 */
 		while (true) {
 
 			if (initialStart) {
@@ -163,7 +164,11 @@ public class WorkerThread60 extends Thread {
 	}
 
 	private void calculateZeroLagMacd() {
-		double zeroLagMacd = util
+		if (closeList.size() < 26) {
+			calculatedZeroLagMacd.add(0.0);
+			return;
+		}
+		double zeroLagMacd = new CalculationUtil()
 				.getZeroLagMacd(ArrayUtils.toPrimitive(closeList.toArray(new Double[closeList.size()])), 12, 26, 9);
 		calculatedZeroLagMacd.add(zeroLagMacd);
 	}
