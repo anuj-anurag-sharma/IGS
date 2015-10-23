@@ -57,20 +57,12 @@ public class WorkerThread30 extends Thread {
 			csvWriter.writeNext(line);
 			csvWriter.flush();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
 
 	@Override
 	public void run() {
-		/*
-		 * for (int i = 0; i < 26; i++) { closeList.add(i * 1000.0);
-		 * openList.add(i * 1000.0); highList.add(i * 1000.0); lowList.add(i *
-		 * 1000.0);
-		 * util.getZeroLagMacd(ArrayUtils.toPrimitive(closeList.toArray(new
-		 * Double[closeList.size()])), 12, 26, 9); }
-		 */
 		while (true) {
 
 			if (initialStart) {
@@ -84,7 +76,6 @@ public class WorkerThread30 extends Thread {
 			} else {
 				sleepTime = 30;
 			}
-			// System.out.println("sleep time set to " + sleepTime);
 			try {
 				Thread.sleep(sleepTime * 1000);
 			} catch (InterruptedException e) {
@@ -112,8 +103,6 @@ public class WorkerThread30 extends Thread {
 					i++;
 					queue.remove(tick);
 				}
-				// TickObject object = new TickObject(open, close, high, low);
-				// System.out.println(DateTime.now() + ":" + object);
 				openList.add(open);
 				highList.add(high);
 				lowList.add(low);
@@ -121,22 +110,29 @@ public class WorkerThread30 extends Thread {
 				calculateSma();
 				calculateZeroLagMacd();
 				calculateHeikinAshi();
-				OHLC ohlc = new OHLC(calculatedSma2Pds, calculatedSma3Pds, calculatedZeroLagMacd, heikinAshiList);
-				ohlcList.add(ohlc);
-				String[] line = formCsvArray(open, high, low, close,
-						calculatedZeroLagMacd.get(calculatedZeroLagMacd.size() - 1),
-						calculatedSma2Pds.get(calculatedSma2Pds.size() - 1),
-						calculatedSma3Pds.get(calculatedSma3Pds.size() - 1),
-						heikinAshiList.get(heikinAshiList.size() - 1).get(CalculationUtil.H_OPEN),
-						heikinAshiList.get(heikinAshiList.size() - 1).get(CalculationUtil.H_CLOSE));
-				csvWriter.writeNext(line);
-				try {
-					csvWriter.flush();
-				} catch (IOException e) {
-					e.printStackTrace();
+				// ensure that zeroLagMacd is calculated for 1 hr.
+				if (calculatedZeroLagMacd.size() > 119) {
+					OHLC ohlc = new OHLC(calculatedSma2Pds, calculatedSma3Pds, calculatedZeroLagMacd, heikinAshiList);
+					ohlcList.add(ohlc);
 				}
+				exportTo30SecCsv(csvWriter, open, high, low, close);
 			}
 
+		}
+	}
+
+	private void exportTo30SecCsv(CSVWriter writer, double open, double high, double low, double close) {
+		String[] line = formCsvArray(open, high, low, close,
+				calculatedZeroLagMacd.get(calculatedZeroLagMacd.size() - 1),
+				calculatedSma2Pds.get(calculatedSma2Pds.size() - 1),
+				calculatedSma3Pds.get(calculatedSma3Pds.size() - 1),
+				heikinAshiList.get(heikinAshiList.size() - 1).get(CalculationUtil.H_OPEN),
+				heikinAshiList.get(heikinAshiList.size() - 1).get(CalculationUtil.H_CLOSE));
+		writer.writeNext(line);
+		try {
+			writer.flush();
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 
@@ -183,10 +179,6 @@ public class WorkerThread30 extends Thread {
 	}
 
 	private void calculateZeroLagMacd() {
-		if (closeList.size() < 26) {
-			calculatedZeroLagMacd.add(0.0);
-			return;
-		}
 		double zeroLagMacd = new CalculationUtil()
 				.getZeroLagMacd(ArrayUtils.toPrimitive(closeList.toArray(new Double[closeList.size()])), 12, 26, 9);
 		calculatedZeroLagMacd.add(zeroLagMacd);

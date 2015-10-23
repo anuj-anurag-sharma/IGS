@@ -4,9 +4,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 
 import org.apache.commons.lang.ArrayUtils;
@@ -28,13 +26,7 @@ public class WorkerThread60 extends Thread {
 
 	List<Double> closeList = new ArrayList<Double>();
 
-	// List<Double> calculatedSma2Pds;
-
-	// List<Double> calculatedSma3Pds;
-
 	List<Double> calculatedZeroLagMacd;
-
-	// List<Map<String, Double>> heikinAshiList;
 
 	File file = new File("60SecondsChart.csv");
 
@@ -55,25 +47,14 @@ public class WorkerThread60 extends Thread {
 			csvWriter.writeNext(line);
 			csvWriter.flush();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		// calculatedSma2Pds = new ArrayList<Double>();
-		// calculatedSma3Pds = new ArrayList<Double>();
 		calculatedZeroLagMacd = new ArrayList<Double>();
-		// heikinAshiList = new ArrayList<Map<String, Double>>();
 		util = new CalculationUtil();
 	}
 
 	@Override
 	public void run() {
-		/*
-		 * for (int i = 0; i < 26; i++) { closeList.add(i * 1000.0);
-		 * openList.add(i * 1000.0); highList.add(i * 1000.0); lowList.add(i *
-		 * 1000.0);
-		 * util.getZeroLagMacd(ArrayUtils.toPrimitive(closeList.toArray(new
-		 * Double[closeList.size()])), 12, 26, 9); }
-		 */
 		while (true) {
 
 			if (initialStart) {
@@ -96,41 +77,50 @@ public class WorkerThread60 extends Thread {
 				double close = 0.0;
 				int size = queue.size();
 				for (Tick tick : queue) {
-					if (i == 0) {
-						open = tick.getOfferOpen();
-						low = tick.getOfferLow();
-					} else {
-						low = Math.min(low, tick.getOfferLow());
-					}
+					// No need to calculate Open, high and low ticks in case of
+					// 1 min
+					/*
+					 * if (i == 0) { open = tick.getOfferOpen(); low =
+					 * tick.getOfferLow(); } else { low = Math.min(low,
+					 * tick.getOfferLow()); }
+					 */
 					if (i == size - 1) {
 						close = tick.getOfferClose();
 					}
-					high = Math.max(high, tick.getOfferHigh());
+					// high = Math.max(high, tick.getOfferHigh());
 
 					i++;
 					queue.remove(tick);
 				}
-				// TickObject object = new TickObject(open, close, high, low);
-				// System.out.println(DateTime.now() + ":" + object);
-				openList.add(open);
-				highList.add(high);
-				lowList.add(low);
+
+				// No need to calculate Open, high and low ticks in case of
+				// 1 min
+
+				// openList.add(open);
+				// highList.add(high);
+				// lowList.add(low);
+
 				closeList.add(close);
-				// calculateSma();
 				calculateZeroLagMacd();
-				// calculateHeikinAshi();
-				OHLC ohlc = new OHLC(null, null, calculatedZeroLagMacd, null);
-				ohlcList.add(ohlc);
-				String[] line = formCsvArray(open, high, low, close,
-						calculatedZeroLagMacd.get(calculatedZeroLagMacd.size() - 1));
-				csvWriter.writeNext(line);
-				try {
-					csvWriter.flush();
-				} catch (IOException e) {
-					e.printStackTrace();
+				// ensure that zeroLagMacd is calculated for 1 hr.
+				if (calculatedZeroLagMacd.size() > 59) {
+					OHLC ohlc = new OHLC(null, null, calculatedZeroLagMacd, null);
+					ohlcList.add(ohlc);
 				}
+				exportTo60SecCsv(csvWriter,open, high, low, close);
 			}
 
+		}
+	}
+
+	private void exportTo60SecCsv(CSVWriter writer, double open, double high, double low, double close) {
+		String[] line = formCsvArray(open, high, low, close,
+				calculatedZeroLagMacd.get(calculatedZeroLagMacd.size() - 1));
+		writer.writeNext(line);
+		try {
+			writer.flush();
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 
@@ -164,10 +154,6 @@ public class WorkerThread60 extends Thread {
 	}
 
 	private void calculateZeroLagMacd() {
-		if (closeList.size() < 26) {
-			calculatedZeroLagMacd.add(0.0);
-			return;
-		}
 		double zeroLagMacd = new CalculationUtil()
 				.getZeroLagMacd(ArrayUtils.toPrimitive(closeList.toArray(new Double[closeList.size()])), 12, 26, 9);
 		calculatedZeroLagMacd.add(zeroLagMacd);
