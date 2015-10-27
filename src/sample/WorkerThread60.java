@@ -6,13 +6,18 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
+import java.util.TimeZone;
 
 import org.apache.commons.lang.ArrayUtils;
+import org.apache.log4j.Logger;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 
 import au.com.bytecode.opencsv.CSVWriter;
 
 public class WorkerThread60 extends Thread {
+
+	private static final Logger LOGGER = Logger.getLogger(WorkerThread30.class);
 
 	boolean initialStart = true;
 
@@ -39,6 +44,7 @@ public class WorkerThread60 extends Thread {
 	CalculationUtil util;
 
 	public WorkerThread60(Queue<Tick> queue, Queue<OHLC> ohlcList) {
+		this.setName("Worker-60");
 		this.queue = queue;
 		this.ohlcList = ohlcList;
 		try {
@@ -56,11 +62,11 @@ public class WorkerThread60 extends Thread {
 	@Override
 	public void run() {
 		while (true) {
-
 			if (initialStart) {
 				int currentSec = DateTime.now().getSecondOfMinute();
 				sleepTime = 60 - currentSec;
 				initialStart = false;
+				LOGGER.info(Thread.currentThread().getName() + " sleep time set to " + sleepTime);
 			} else {
 				sleepTime = 60;
 			}
@@ -69,6 +75,7 @@ public class WorkerThread60 extends Thread {
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
+			LOGGER.info(Thread.currentThread().getName() + " is awake at " + DateTime.now());
 			synchronized (queue) {
 				int i = 0;
 				double open = 0.0;
@@ -103,11 +110,15 @@ public class WorkerThread60 extends Thread {
 				closeList.add(close);
 				calculateZeroLagMacd();
 				// ensure that zeroLagMacd is calculated for 1 hr.
-				if (calculatedZeroLagMacd.size() > 59) {
+				if (calculatedZeroLagMacd.size() > 59 && DateTime
+						.now(DateTimeZone.forTimeZone(TimeZone.getTimeZone("Europe/London"))).getHourOfDay() >= 8) {
 					OHLC ohlc = new OHLC(null, null, calculatedZeroLagMacd, null);
 					ohlcList.add(ohlc);
 				}
-				exportTo60SecCsv(csvWriter,open, high, low, close);
+				if (calculatedZeroLagMacd.size() > 100) {
+					calculatedZeroLagMacd = calculatedZeroLagMacd.subList(41, 101);
+				}
+				exportTo60SecCsv(csvWriter, open, high, low, close);
 			}
 
 		}

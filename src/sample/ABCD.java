@@ -11,6 +11,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.springframework.http.HttpEntity;
@@ -30,9 +31,9 @@ import com.iggroup.api.service.Constants;
 import com.iggroup.api.service.ConversationContext;
 import com.iggroup.api.session.createSessionV2.CreateSessionV2Request;
 import com.iggroup.api.session.createSessionV2.CreateSessionV2Response;
-import com.iggroup.api.streaming.ConnectionListenerAdapter;
 import com.iggroup.api.streaming.HandyTableListenerAdapter;
 import com.lightstreamer.ls_client.ConnectionInfo;
+import com.lightstreamer.ls_client.ConnectionListener;
 import com.lightstreamer.ls_client.ExtendedTableInfo;
 import com.lightstreamer.ls_client.LSClient;
 import com.lightstreamer.ls_client.PushConnException;
@@ -44,9 +45,13 @@ import com.tictactec.ta.lib.Core;
 
 public class ABCD {
 
-	public static String SEC_30="30SEC";
-	public static String MIN_1="1MIN";
-	public static String STR_ENABLE=SEC_30;
+	private static final Logger LOGGER = Logger.getLogger(ABCD.class);
+
+	public static String SEC_30 = "30SEC";
+	public static String MIN_1 = "1MIN";
+	public static String ALL = "ALL";
+	public static String STR_ENABLE = SEC_30;
+	public static String UNIT = null;
 	static RestTemplate restTemplate = new RestTemplate();
 
 	private static final String CHART_CANDLE_PATTERN = "CHART:{epic}:{scale}";
@@ -54,14 +59,25 @@ public class ABCD {
 	static String uri = "https://demo-api.ig.com/gateway/deal";
 
 	static LSClient lsClient = null;
-	
-	public static String EPIC="FM.D.EURUSD24.EURUSD24.IP";
+
+	public static String EPIC = "FM.D.EURUSD24.EURUSD24.IP";
 
 	static Core core = new Core();
 
 	static List<String> trades = new ArrayList<String>();
 
 	static AuthenticationResponseAndConversationContext context;
+
+	static DateTime lastTradedTime = null;
+
+	final static Queue<Tick> queue30 = new ConcurrentLinkedQueue<Tick>();
+	final static Queue<Tick> queue60 = new ConcurrentLinkedQueue<Tick>();
+
+	private static OrderProcessingThread30 orderProcessingThread30 = null;
+
+	private static OrderProcessingThread60 orderProcessingThread60 = null;
+
+	static boolean isFirst = false;
 
 	public static void main(String[] args) throws Exception {
 		ABCD main = new ABCD();
@@ -71,20 +87,29 @@ public class ABCD {
 		context = main.createSession(request, "84df164ace00c09cd39cafea900d1d8a214632e2");
 		connect(context.getConversationContext(), context.getCreateSessionResponse().getCurrentAccountId(),
 				context.getCreateSessionResponse().getLightstreamerEndpoint());
-
-		subscribe();
+		if (!isFirst) {
+			process(true);
+			isFirst = true;
+		} else {
+			process(false);
+		}
 
 	}
-	
+
+	public static void disableThreads() {
+		LOGGER.info("Disabling order processing threads");
+		orderProcessingThread30.setEnable(false);
+		orderProcessingThread30.setEnable(false);
+	}
+
 	public static void start() {
-		String[] str=new  String[10];
+		String[] str = new String[10];
 		try {
 			ABCD.main(str);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
-	
 
 	private static void heinekenAshiCalculation() {
 	}
@@ -93,31 +118,41 @@ public class ABCD {
 		lsClient.closeConnection();
 	}
 
-	private static void subscribe() throws Exception {
-		
-		final Queue<Tick> queue30 = new ConcurrentLinkedQueue<Tick>();
-		final Queue<Tick> queue60 = new ConcurrentLinkedQueue<Tick>();
-		BlockingQueue<OHLC> ohlcQueue30 = new ArrayBlockingQueue<OHLC>(20);
-		BlockingQueue<OHLC> ohlcQueue60 = new ArrayBlockingQueue<OHLC>(20);
-		OrderProcessingThread30 orderProcessingThread30 = new OrderProcessingThread30(ohlcQueue30);
-		Thread workerThread30 = new WorkerThread30(queue30, ohlcQueue30);
-		Thread workerThread60 = new WorkerThread60(queue60, ohlcQueue60);
-		OrderProcessingThread60 orderProcessingThread60 = new OrderProcessingThread60(ohlcQueue60);
-		if(STR_ENABLE.equalsIgnoreCase(SEC_30)){
+	private static void process(boolean isFirst) throws Exception {
+		if (isFirst) {
+			BlockingQueue<OHLC> ohlcQueue30 = new ArrayBlockingQueue<OHLC>(20);
+			BlockingQueue<OHLC> ohlcQueue60 = new ArrayBlockingQueue<OHLC>(20);
+			Object lock = new Object();
+			orderProcessingThread30 = new OrderProcessingThread30(ohlcQueue30, lock);
+			Thread workerThread30 = new WorkerThread30(queue30, ohlcQueue30);
+			Thread workerThread60 = new WorkerThread60(queue60, ohlcQueue60);
+			orderProcessingThread60 = new OrderProcessingThread60(ohlcQueue60, lock);
+			if (STR_ENABLE.equalsIgnoreCase(SEC_30)) {
+				orderProcessingThread30.setEnable(true);
+			} else if (STR_ENABLE.equalsIgnoreCase(MIN_1)) {
+				orderProcessingThread60.setEnable(true);
+			} else if (STR_ENABLE.equalsIgnoreCase(ALL)) {
+				orderProcessingThread30.setEnable(true);
+				orderProcessingThread60.setEnable(true);
+			}
+			workerThread30.start();
+			orderProcessingThread30.start();
+			workerThread60.start();
+			orderProcessingThread60.start();
+			subscribe(queue30, queue60);
+		} else {
 			orderProcessingThread30.setEnable(true);
-		}else if (STR_ENABLE.equalsIgnoreCase(MIN_1)) {
 			orderProcessingThread60.setEnable(true);
 		}
-		workerThread30.start();
-		orderProcessingThread30.start();
-		workerThread60.start();
-		orderProcessingThread60.start();
+	}
+
+	private static void subscribe(final Queue<Tick> queue30, final Queue<Tick> queue60) throws Exception {
 		subscribeForChartCandles(EPIC, "SECOND", new HandyTableListenerAdapter() {
 			@Override
 			public void onUpdate(int i, String s, UpdateInfo updateInfo) {
 				String newValue = updateInfo.getNewValue("UTM");
 				DateTime dateTime = new DateTime(Long.valueOf(newValue),
-						DateTimeZone.forTimeZone(TimeZone.getTimeZone("IST")));
+						DateTimeZone.forTimeZone(TimeZone.getTimeZone("Europe/London")));
 				double ofrOpen = Double.valueOf(updateInfo.getNewValue("OFR_OPEN"));
 				double ofrHigh = Double.valueOf(updateInfo.getNewValue("OFR_HIGH"));
 				double ofrLow = Double.valueOf(updateInfo.getNewValue("OFR_LOW"));
@@ -128,6 +163,7 @@ public class ABCD {
 				double bidClose = Double.valueOf(updateInfo.getNewValue("BID_CLOSE"));
 				Tick tick = new Tick(dateTime, (ofrOpen + bidOpen) / 2, (ofrHigh + bidHigh) / 2, (ofrLow + bidLow) / 2,
 						(ofrClose + bidClose) / 2, null);
+				LOGGER.info(tick);
 				queue30.add(tick);
 				queue60.add(tick);
 			}
@@ -140,7 +176,7 @@ public class ABCD {
 		sprintMarketRequest.setEpic(EPIC);
 		sprintMarketRequest.setDirection(direction);
 		sprintMarketRequest.setExpiryPeriod(ExpiryPeriod.ONE_MINUTE);
-		sprintMarketRequest.setSize(new BigDecimal(1));
+		sprintMarketRequest.setSize(new BigDecimal(UNIT));
 		CreateSprintMarketPositionV1Response response = createSprintMarketPositionV1(conversationContext,
 				sprintMarketRequest);
 		return response.getDealReference();
@@ -253,13 +289,86 @@ public class ABCD {
 		connectionInfo.password = password;
 		connectionInfo.pushServerUrl = lightstreamerEndpoint;
 
-		final ConnectionListenerAdapter adapter = new ConnectionListenerAdapter();
+		// final ConnectionListenerAdapter adapter = new
+		// ConnectionListenerAdapter();
 
-		lsClient.openConnection(connectionInfo, adapter);
+		lsClient.openConnection(connectionInfo, new ConnectionListener() {
+
+			@Override
+			public void onSessionStarted(boolean arg0) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onNewBytes(long arg0) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onFailure(PushConnException arg0) {
+
+			}
+
+			@Override
+			public void onFailure(PushServerException arg0) {
+				System.err.println("Network failure...");
+				try {
+					connect(context.getConversationContext(), context.getCreateSessionResponse().getCurrentAccountId(),
+							context.getCreateSessionResponse().getLightstreamerEndpoint());
+					subscribe(queue30, queue60);
+				} catch (Exception e) {
+					try {
+						Thread.sleep(1000L);
+					} catch (InterruptedException e1) {
+					}
+					this.onFailure(arg0);
+				}
+
+			}
+
+			@Override
+			public void onEnd(int arg0) {
+
+			}
+
+			@Override
+			public void onDataError(PushServerException arg0) {
+
+			}
+
+			@Override
+			public void onConnectionEstablished() {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onClose() {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onActivityWarning(boolean arg0) {
+				// TODO Auto-generated method stub
+
+			}
+		});
 
 	}
 
 	public static void trade(Direction direction) {
+
+		if (lastTradedTime == null) {
+			extracted(direction);
+		} else if (DateTime.now().minus(25 * 1000).isBefore(lastTradedTime)) {
+			extracted(direction);
+		}
+	}
+
+	private static void extracted(Direction direction) {
 		String tradeRef = "";
 		try {
 			tradeRef = placeOrder(context.getConversationContext(), direction);
@@ -267,9 +376,9 @@ public class ABCD {
 			e.printStackTrace();
 		}
 		if (!StringUtils.isEmpty(tradeRef)) {
-			System.out.println("Trade order placed with deal Reference  : " + tradeRef);
+			LOGGER.info("Trade order placed with deal Reference  : " + tradeRef);
 			trades.add(tradeRef);
 		}
+		lastTradedTime = DateTime.now();
 	}
-
 }

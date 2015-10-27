@@ -11,11 +11,13 @@ import com.iggroup.api.positions.sprintmarkets.createSprintMarketPositionV1.Dire
 public class OrderProcessingThread60 extends Thread {
 
 	private BlockingQueue<OHLC> ohlcList;
-	private boolean enable=false;
-	
-	public OrderProcessingThread60(BlockingQueue<OHLC> ohlcList) {
+	private boolean enable = false;
+	private Object object;
+
+	public OrderProcessingThread60(BlockingQueue<OHLC> ohlcList, Object lock) {
 		super.setName("OrderProcessingThread60");
 		this.ohlcList = ohlcList;
+		this.object = lock;
 	}
 
 	@Override
@@ -41,12 +43,14 @@ public class OrderProcessingThread60 extends Thread {
 					break;
 				}
 				}
-				if(enable){
-					ABCD.trade(direction);	
-				}else{
+				if (enable) {
+					synchronized (object) {
+						ABCD.trade(direction);
+					}
+				} else {
 					System.out.println("60 Sec is not enabled for trade");
 				}
-				
+
 			}
 			System.out.println("*****" + ohlc + "*****");
 			System.out.println("Decision : " + decision);
