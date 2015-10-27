@@ -44,6 +44,9 @@ import com.tictactec.ta.lib.Core;
 
 public class ABCD {
 
+	public static String SEC_30="30SEC";
+	public static String MIN_1="1MIN";
+	public static String STR_ENABLE=SEC_30;
 	static RestTemplate restTemplate = new RestTemplate();
 
 	private static final String CHART_CANDLE_PATTERN = "CHART:{epic}:{scale}";
@@ -51,6 +54,8 @@ public class ABCD {
 	static String uri = "https://demo-api.ig.com/gateway/deal";
 
 	static LSClient lsClient = null;
+	
+	public static String EPIC="FM.D.EURUSD24.EURUSD24.IP";
 
 	static Core core = new Core();
 
@@ -70,9 +75,18 @@ public class ABCD {
 		subscribe();
 
 	}
+	
+	public static void start() {
+		String[] str=new  String[10];
+		try {
+			ABCD.main(str);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
 
 	private static void heinekenAshiCalculation() {
-
 	}
 
 	private static void disconnect() {
@@ -80,19 +94,25 @@ public class ABCD {
 	}
 
 	private static void subscribe() throws Exception {
+		
 		final Queue<Tick> queue30 = new ConcurrentLinkedQueue<Tick>();
 		final Queue<Tick> queue60 = new ConcurrentLinkedQueue<Tick>();
 		BlockingQueue<OHLC> ohlcQueue30 = new ArrayBlockingQueue<OHLC>(20);
 		BlockingQueue<OHLC> ohlcQueue60 = new ArrayBlockingQueue<OHLC>(20);
-		Thread orderProcessingThread30 = new OrderProcessingThread30(ohlcQueue30);
+		OrderProcessingThread30 orderProcessingThread30 = new OrderProcessingThread30(ohlcQueue30);
 		Thread workerThread30 = new WorkerThread30(queue30, ohlcQueue30);
 		Thread workerThread60 = new WorkerThread60(queue60, ohlcQueue60);
-		Thread orderProcessingThread60 = new OrderProcessingThread60(ohlcQueue60);
+		OrderProcessingThread60 orderProcessingThread60 = new OrderProcessingThread60(ohlcQueue60);
+		if(STR_ENABLE.equalsIgnoreCase(SEC_30)){
+			orderProcessingThread30.setEnable(true);
+		}else if (STR_ENABLE.equalsIgnoreCase(MIN_1)) {
+			orderProcessingThread60.setEnable(true);
+		}
 		workerThread30.start();
 		orderProcessingThread30.start();
 		workerThread60.start();
 		orderProcessingThread60.start();
-		subscribeForChartCandles("FM.D.EURUSD24.EURUSD24.IP", "SECOND", new HandyTableListenerAdapter() {
+		subscribeForChartCandles(EPIC, "SECOND", new HandyTableListenerAdapter() {
 			@Override
 			public void onUpdate(int i, String s, UpdateInfo updateInfo) {
 				String newValue = updateInfo.getNewValue("UTM");
@@ -117,7 +137,7 @@ public class ABCD {
 
 	public static String placeOrder(ConversationContext conversationContext, Direction direction) throws Exception {
 		CreateSprintMarketPositionV1Request sprintMarketRequest = new CreateSprintMarketPositionV1Request();
-		sprintMarketRequest.setEpic("FM.D.EURUSD24.EURUSD24.IP");
+		sprintMarketRequest.setEpic(EPIC);
 		sprintMarketRequest.setDirection(direction);
 		sprintMarketRequest.setExpiryPeriod(ExpiryPeriod.ONE_MINUTE);
 		sprintMarketRequest.setSize(new BigDecimal(1));

@@ -11,7 +11,8 @@ import com.iggroup.api.positions.sprintmarkets.createSprintMarketPositionV1.Dire
 public class OrderProcessingThread60 extends Thread {
 
 	private BlockingQueue<OHLC> ohlcList;
-
+	private boolean enable=false;
+	
 	public OrderProcessingThread60(BlockingQueue<OHLC> ohlcList) {
 		super.setName("OrderProcessingThread60");
 		this.ohlcList = ohlcList;
@@ -40,7 +41,12 @@ public class OrderProcessingThread60 extends Thread {
 					break;
 				}
 				}
-				ABCD.trade(direction);
+				if(enable){
+					ABCD.trade(direction);	
+				}else{
+					System.out.println("60 Sec is not enabled for trade");
+				}
+				
 			}
 			System.out.println("*****" + ohlc + "*****");
 			System.out.println("Decision : " + decision);
@@ -168,6 +174,14 @@ public class OrderProcessingThread60 extends Thread {
 		} else {
 			System.out.println("Heikin Ashi processing - not happening because index is " + index);
 		}
+	}
+
+	public boolean isEnable() {
+		return enable;
+	}
+
+	public void setEnable(boolean enable) {
+		this.enable = enable;
 	}
 
 }
